@@ -4,14 +4,15 @@ from rest_framework.response import Response
 from accounts.api.serializers import UserSerializer
 from django.contrib.auth import get_user_model
 from .helper import otp_manager
-import json
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
 
 # Create your views here.
 
 User = get_user_model()
 
 class RegisterAV(APIView):
-    
+    permission_classes  = [AllowAny,]
     def post(self,request,*args,**kwargs):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -27,6 +28,7 @@ class RegisterAV(APIView):
             return Response(serializer.errors)
 
 class ValidateOTPAV(APIView):
+    permission_classes  = [AllowAny,]
     
     def post(self,request,*args, **kwargs):
         try:
@@ -39,11 +41,17 @@ class ValidateOTPAV(APIView):
                 if user.otp == otp:
                     user.is_phone_verified = True
                     user.save()
+                    
                     return Response({
                         "success":"Phone number verified",
-                        "user": user.phone_number
+                        "user": user.phone_number,
+                        "token":self.send_auth_token(user=user)
                     })
         except User.DoesNotExist:
             return Response({
                 "error":"User with this Phone number does not exists..."
             })
+            
+    def send_auth_token(self,user):
+        token = Token.objects.get_or_create(user=user)
+        return token[0].key
